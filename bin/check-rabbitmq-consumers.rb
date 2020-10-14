@@ -56,6 +56,11 @@ class CheckRabbitMQConsumers < Sensu::Plugin::RabbitMQ::Check
          proc: proc(&:to_i),
          default: 2
 
+  option :single_consumer,
+         short: '-s SINGLE_CONSUMER',
+         long: '--single SINGLE_CONSUMER',
+         description: 'CRITICAL single consumer queue'
+
   def return_condition(missing, critical, warning)
     if critical.count > 0 || missing.count > 0
       message = []
@@ -98,8 +103,12 @@ class CheckRabbitMQConsumers < Sensu::Plugin::RabbitMQ::Check
         end
         missing.delete(queue['name'])
         consumers = queue['consumers'] || 0
-        critical.push("#{queue['name']}:#{queue['consumers']}-Consumers") if consumers <= config[:critical]
-        warn.push("#{queue['name']}:#{queue['consumers']}-Consumers") if consumers <= config[:warn]
+        if config[:single_consumer]
+          critical.push("#{queue['name']}:#{queue['consumers']}-Consumers") if consumers != 1
+        else
+          critical.push("#{queue['name']}:#{queue['consumers']}-Consumers") if consumers <= config[:critical]
+          warn.push("#{queue['name']}:#{queue['consumers']}-Consumers") if consumers <= config[:warn]
+        end
       end
     rescue StandardError
       critical 'Could not find any queue, check rabbitmq server'
